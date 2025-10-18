@@ -4,6 +4,7 @@ from aiogram import Bot, Dispatcher, types
 from aiogram.types import ReplyKeyboardMarkup, KeyboardButton
 import os
 from datetime import datetime, timedelta
+import pytz  # Для работы с часовыми поясами
 
 # Получаем токен из переменной окружения
 TOKEN = os.getenv("TOKEN")
@@ -64,12 +65,12 @@ async def process_steps(message: types.Message):
             return
         data["count"] = int(message.text)
         data["step"] = "time"
-        await message.answer("Во сколько напоминать? (например, 08:00)")
+        await message.answer("Во сколько напоминать? (по московскому времени, например 08:00)")
     elif step == "time":
         try:
             datetime.strptime(message.text, "%H:%M")
         except ValueError:
-            await message.answer("Неверный формат времени! Используйте ЧЧ:ММ")
+            await message.answer("Неверный формат времени! Используйте ЧЧ:ММ (по московскому времени)")
             return
         data["time"] = message.text
         data["step"] = "days"
@@ -107,10 +108,13 @@ async def process_delete(message: types.Message):
     conn.commit()
     await message.answer(f"Напоминание {med_name} удалено!", reply_markup=main_keyboard())
 
+# Московский часовой пояс
+moscow_tz = pytz.timezone("Europe/Moscow")
+
 async def scheduler():
     while True:
-        now = datetime.now().strftime("%H:%M")
-        cursor.execute("SELECT chat_id, medicine, count FROM reminders WHERE time = ?", (now,))
+        now_moscow = datetime.now(moscow_tz).strftime("%H:%M")
+        cursor.execute("SELECT chat_id, medicine, count FROM reminders WHERE time = ?", (now_moscow,))
         rows = cursor.fetchall()
         for row in rows:
             chat_id, med, count = row
